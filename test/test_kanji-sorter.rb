@@ -1,38 +1,62 @@
 #!/usr/bin/env ruby
+# coding: utf-8
 
 require "minitest/autorun"
 require "./kanji-sorter.rb"
 
-class TestKanjiYear < Minitest::Test
-  def test_years
-    assert_equal(2017, KanjiYear.year(use: "2020-05-01"))
-    assert_equal(2017, KanjiYear.year(use: "R2sy"))
-    assert_equal(1989, KanjiYear.year(use: "2020-03-31"))
-    assert_equal(1989, KanjiYear.year(use: "R2-03"))
-    assert_equal(1989, KanjiYear.year(use: "2020"))
-    assert_equal(1989, KanjiYear.year(use: "R1 school year"))
-    assert_equal(1989, KanjiYear.year(use: "H4 school year"))
-    assert_equal(1977, KanjiYear.year(use: "H04-03-31"))
-    assert_equal(1977, KanjiYear.year(use: "H03sy"))
-    assert_equal(1977, KanjiYear.year(use: "S55sy"))
-    assert_equal(1958, KanjiYear.year(use: "S55-03-31"))
-    assert_equal(1958, KanjiYear.year(use: "S54sy"))
-    assert_equal(1958, KanjiYear.year(use: "S36sy"))
-    assert_raises(RuntimeError) { KanjiYear.year(use: "S20sy") }; puts
-    assert_equal(2017, KanjiYear.year(pub: "2020-03-01"))
-    assert_equal(2017, KanjiYear.year(pub: "R2-03-31"))
-    assert_equal(2017, KanjiYear.year(pub: "H29-01-01"))
-    assert_equal(1989, KanjiYear.year(pub: "H28-12-31"))
-    assert_equal(1989, KanjiYear.year(pub: "2010"))
-    assert_equal(1989, KanjiYear.year(pub: "S64-01-01"))
-    assert_equal(1977, KanjiYear.year(pub: "S63-12-31"))
-    assert_equal(1977, KanjiYear.year(pub: "S52-01-01"))
-    assert_equal(1958, KanjiYear.year(pub: "S51-12-31"))
-    assert_equal(1958, KanjiYear.year(pub: "S33-01-01"))
-    assert_raises(RuntimeError) { KanjiYear.year(pub: "S32-12-31") }; puts
+class TestKanjiSorter < Minitest::Test
+  # Date.ks_parseにさまざまな引数を入れてDateオブジェクトを生成する
+  def test_ks_parse
+    assert_equal(Date.new(2020, 5, 1), Date.ks_parse("2020-05-01"))
+    assert_equal(Date.new(2020, 4, 1), Date.ks_parse("R2sy"))
+    assert_equal(Date.new(2020, 3, 1), Date.ks_parse("R2-03"))
+    assert_equal(Date.new(2020, 1, 1), Date.ks_parse("2020"))
+    assert_equal(Date.new(2019, 4, 1), Date.ks_parse("R1 school year"))
+    assert_equal(Date.new(1992, 4, 1), Date.ks_parse("H4 school year"))
+    assert_equal(Date.new(1992, 3,31), Date.ks_parse("H04-03-31"))
+    assert_equal(Date.new(1980, 4, 1), Date.ks_parse("S55sy"))
+    assert_equal(Date.new(1989, 1, 1), Date.ks_parse("S64-01-01"))
+    assert_equal(Date.new(1988,12,31), Date.ks_parse("S63-12-31"))
+    assert_equal(Date.new(2019, 4,30), Date.ks_parse("H31-04-30"))
+    assert_equal(Date.new(2019, 4,30), Date.ks_parse("R1-04-30"))
+    assert_equal(Date.new(2019, 5, 1), Date.ks_parse("H31-5-1"))
+    assert_equal(Date.new(2019, 5, 1), Date.ks_parse("R01-5-01"))
+    assert_equal(Date.new(2020,12, 1), Date.ks_parse("202012"))
+    assert_equal(Date.new(2020,12, 1), Date.ks_parse("20201201"))
+    assert_equal(Date.new(2020,12, 1), Date.ks_parse("2020-12"))
+    assert_equal(Date.new(2020, 1, 2), Date.ks_parse("2020-1-2"))
   end
 
-  # 対象を切り替えて同一文字列で結果を確認する
+  # ハッシュをもとに学年別漢字配当表の発表年を求める
+  def test_ks_year
+    assert_equal(2017, Date.ks_year(use: "2020-05-01"))
+    assert_equal(2017, Date.ks_year(use: "R2sy"))
+    assert_equal(1989, Date.ks_year(use: "2020-03-31"))
+    assert_equal(1989, Date.ks_year(use: "R2-03"))
+    assert_equal(1989, Date.ks_year(use: "2020"))
+    assert_equal(1989, Date.ks_year(use: "R1 school year"))
+    assert_equal(1989, Date.ks_year(use: "H4 school year"))
+    assert_equal(1977, Date.ks_year(use: "H04-03-31"))
+    assert_equal(1977, Date.ks_year(use: "H03sy"))
+    assert_equal(1977, Date.ks_year(use: "S55sy"))
+    assert_equal(1958, Date.ks_year(use: "S55-03-31"))
+    assert_equal(1958, Date.ks_year(use: "S54sy"))
+    assert_equal(1958, Date.ks_year(use: "S36sy"))
+    assert_raises(RuntimeError) { Date.ks_year(use: "S20sy") }; puts
+    assert_equal(2017, Date.ks_year(pub: "2020-03-01"))
+    assert_equal(2017, Date.ks_year(pub: "R2-03-31"))
+    assert_equal(2017, Date.ks_year(pub: "H29-01-01"))
+    assert_equal(1989, Date.ks_year(pub: "H28-12-31"))
+    assert_equal(1989, Date.ks_year(pub: "2010"))
+    assert_equal(1989, Date.ks_year(pub: "S64-01-01"))
+    assert_equal(1977, Date.ks_year(pub: "S63-12-31"))
+    assert_equal(1977, Date.ks_year(pub: "S52-01-01"))
+    assert_equal(1958, Date.ks_year(pub: "S51-12-31"))
+    assert_equal(1958, Date.ks_year(pub: "S33-01-01"))
+    assert_raises(RuntimeError) { Date.ks_year(pub: "S32-12-31") }; puts
+  end
+
+  # 学年別漢字配当表を切り替えて，同一文字列で処理させる
   def test_kanji_sorter
     seq = "大阪府兵庫県京都府滋賀県奈良県和歌山県三重県香川県徳島県"
 

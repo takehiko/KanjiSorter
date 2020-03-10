@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# coding: utf-8
 
 # kanji-sorter.rb
 #   引数の文字列，または引数で指定されたファイルに対して，
@@ -13,21 +14,45 @@ NAME_LONG = NAME_SHORT
 VERSION_PREFIX = "0.0.2"
 AUTHOR = "takehikom (takehiko@wakayama-u.ac.jp)"
 
-module KanjiYear
+class Date
+  # 日付文字列からDateオブジェクトを生成する
+  def self.ks_parse(str)
+    d = Date.new
+
+    if /^[rhs]/i =~ str
+      s = d.resolve_wareki_year(str)
+    else
+      s = str
+    end
+
+    s = d.set_ymd(s)
+
+    date = self.parse(s)
+  end
+
   # ハッシュをもとに学年別漢字配当表の発表年
   # (1958 1977 1989 2017のいずれか)を返す
-  def year(h)
-    cond, date = get_cond_date(h)
+  def self.ks_year(h = {})
+    # cond, date = get_cond_date(h)
+
+    if h.key?(:use)
+      cond = :use
+      s = h[:use]
+    else
+      cond = :pub
+      s = h[:pub]
+    end
+    if s.nil?
+      raise "condition not specified."
+    end
+    date = self.ks_parse(s)
+
     if $DEBUG
       puts "DEBUG: h = #{h.inspect}"
       puts "DEBUG: cond = #{cond}"
       puts "DEBUG: date = #{date}"
     end
-    if cond == :pub
-      y = get_year_by_pub(date)
-    else # cond == :use
-      y = get_year_by_use(date)
-    end
+    y = date.get_ks_year(cond == :use)
 
     if $DEBUG
       puts "DEBUG: y = #{y}"
@@ -36,42 +61,32 @@ module KanjiYear
 
     y
   end
-  module_function :year
 
-  private
-
-  # cond (:pubまたは:use）とdate（Dateオブジェクト）のリストを返す
-  def get_cond_date(h)
-    if h.key?(:use)
-      cond = :use
-      s1 = h[:use]
+  # 学年別漢字配当表の発表年(1958 1977 1989 2017のいずれか)を返す
+  def get_ks_year(flag_use = false)
+    if flag_use
+      if self >= Date.parse("2020-04-01")
+        return 2017
+      elsif self >= Date.parse("1992-04-01")
+        return 1989
+      elsif self >= Date.parse("1980-04-01")
+        return 1977
+      elsif self >= Date.parse("1961-04-01")
+        return 1958
+      end
+      raise "too old year in use specified"
     else
-      cond = :pub
-      s1 = h[:pub]
+      if self >= Date.parse("2017-01-01")
+        return 2017
+      elsif self >= Date.parse("1989-01-01")
+        return 1989
+      elsif self >= Date.parse("1977-01-01")
+        return 1977
+      elsif self >= Date.parse("1958-01-01")
+        return 1958
+      end
+      raise "too old year in publication specified"
     end
-    if s1.nil?
-      raise "condition not specified."
-    end
-
-    s2 = s1
-    if /^[rhs]/i =~ s1
-      s2 = resolve_wareki_year(s1)
-    end
-    s2.gsub!(/\s/, "")
-    if /^(\d+)s/i =~ s2
-      s2 = $1 + "-04-01"
-    elsif /(\d{4}(-?)\d{2})(\D|$)/ =~ s2
-      s2 = $1 + $2 + "01"
-    elsif /(\d{4})(\D|$)/ =~ s2
-      s2 = $1 + "-01-01"
-    end
-    if $DEBUG
-      puts "DEBUG: s2 = #{s2}"
-    end
-
-    date = Date.parse(s2)
-
-    [cond, date]
   end
 
   # 日付文字列の接頭辞（S:昭和，H:平成，R:令和）を西暦年に変換した
@@ -81,47 +96,42 @@ module KanjiYear
     when /^r\D*(\d+)(.*)$/i
       s1, s2 = $1, $2
       s1_mod = (2018 + $1.to_i).to_s
-      return s1_mod + s2
     when /^h\D*(\d+)(.*)$/i
       s1, s2 = $1, $2
       s1_mod = (1988 + $1.to_i).to_s
-      return s1_mod + s2
     when /^s\D*(\d+)(.*)$/i
       s1, s2 = $1, $2
       s1_mod = (1925 + $1.to_i).to_s
-      return s1_mod + s2
+    else
+      raise "resolve_wareki_year failed."
     end
-    raise "resolve_wareki_year failed."
+
+    s3 = s1_mod + s2
+    if $DEBUG
+      puts "resolve_wareki_year(#{s}) => #{s3}"
+    end
+    s3
   end
 
-  def get_year_by_pub(date)
-    if date >= Date.parse("2017-01-01")
-      return 2017
-    elsif date >= Date.parse("1989-01-01")
-      return 1989
-    elsif date >= Date.parse("1977-01-01")
-      return 1977
-    elsif date >= Date.parse("1958-01-01")
-      return 1958
+  # 年月日が含まれる文字列("2020-04-01", "20200401"など)を返す
+  def set_ymd(s)
+    s.gsub!(/\s/, "")
+    if /^(\d+)s/i =~ s
+      s = $1 + "-04-01"
+    elsif /^\d{4}-\d{1,2}-\d{1,2}/ =~ s
+      s = $&
+    elsif /^(\d{4}(-?)\d{1,2})([^-\d]|$)/ =~ s
+      s = $1 + $2 + "01"
+    elsif /^(\d{4})(\D|$)/ =~ s
+      s = $1 + "-01-01"
     end
-    raise "too old year in publication specified"
-  end
 
-  def get_year_by_use(date)
-    if date >= Date.parse("2020-04-01")
-      return 2017
-    elsif date >= Date.parse("1992-04-01")
-      return 1989
-    elsif date >= Date.parse("1980-04-01")
-      return 1977
-    elsif date >= Date.parse("1961-04-01")
-      return 1958
+    if $DEBUG
+      puts "DEBUG: s = #{s}"
     end
-    raise "too old year in use specified"
+    s
   end
 end
-
-include KanjiYear
 
 class KanjiSorter
   def initialize(str, opt = {})
@@ -132,14 +142,15 @@ class KanjiSorter
     @pattern_result = opt[:pattern] || 0 # kanji_and_freq_to_sで使用
 
     begin
-      @kanjiset_year = KanjiYear.year(opt)
+      @kanjiset_year = Date.ks_year(opt)
     rescue
       @kanjiset_year = 2017
     end
 
     @kanji_grade = {}         # '一' => 1, ...
     @kanji_freq = Hash.new(0) # @bodyにおける文字の頻度
-    @freq_grade = []          # 各学年および配当外の出力内容(0:配当外，1:1年, ..., 6:6年)
+    @freq_grade = []          # 各学年および配当外の出力内容
+                              # (0:配当外，1:1年, ..., 6:6年)
 
     setup_kanji
   end
@@ -250,7 +261,7 @@ class KanjiSorter
       kanji6 = '異遺域壱宇羽映延沿可我灰街革拡閣割株干巻看勧簡丸危机揮貴疑弓吸泣供胸郷勤筋系径敬警劇穴兼憲権源厳己呼誤后好孝皇紅降鋼刻穀骨困砂座済裁策冊至私姿視詞誌矢磁射捨尺釈若需樹宗就従縦縮熟純処署諸将笑傷障城蒸針仁垂推寸是聖誠宣専染泉洗奏窓創層操蔵臓俗存尊宅担探段暖値仲宙忠著庁兆頂潮賃痛展党討糖届難弐乳認納脳派拝肺背俳班晩否批秘腹奮陛閉片補宝訪亡忘棒枚幕密盟模訳郵優幼羊欲翌乱卵覧裏律臨朗論'
     when 1989
       # 1989年公表，1992年から使用
-      # https://ja.wikipedia.org/w/index.php?title=%E5%AD%A6%E5%B9%B4%E5%88%A5%E6%BC%A2%E5%AD%97%E9%85%8D%E5%BD%93%E8%A1%A8&oldid=58166139
+      # https://ja.wikipedia.org/wiki/%E5%AD%A6%E5%B9%B4%E5%88%A5%E6%BC%A2%E5%AD%97%E9%85%8D%E5%BD%93%E8%A1%A8_(1989-2016)
       kanji1 = '一右雨円王音下火花貝学気九休玉金空月犬見五口校左三山子四糸字耳七車手十出女小上森人水正生青夕石赤千川先早草足村大男竹中虫町天田土二日入年白八百文木本名目立力林六'
       kanji2 = '引羽雲園遠何科夏家歌画回会海絵外角楽活間丸岩顔汽記帰弓牛魚京強教近兄形計元言原戸古午後語工公広交光考行高黄合谷国黒今才細作算止市矢姉思紙寺自時室社弱首秋週春書少場色食心新親図数西声星晴切雪船線前組走多太体台地池知茶昼長鳥朝直通弟店点電刀冬当東答頭同道読内南肉馬売買麦半番父風分聞米歩母方北毎妹万明鳴毛門夜野友用曜来里理話'
       kanji3 = '悪安暗医委意育員院飲運泳駅央横屋温化荷開界階寒感漢館岸起期客究急級宮球去橋業曲局銀区苦具君係軽血決研県庫湖向幸港号根祭皿仕死使始指歯詩次事持式実写者主守取酒受州拾終習集住重宿所暑助昭消商章勝乗植申身神真深進世整昔全相送想息速族他打対待代第題炭短談着注柱丁帳調追定庭笛鉄転都度投豆島湯登等動童農波配倍箱畑発反坂板皮悲美鼻筆氷表秒病品負部服福物平返勉放味命面問役薬由油有遊予羊洋葉陽様落流旅両緑礼列練路和'
